@@ -1,6 +1,12 @@
 # Compiled class file
 *.class
 
+# Build output directories
+out/
+bin/
+build/
+target/
+
 # Log file
 *.log
 
