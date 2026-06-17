@@ -15,7 +15,10 @@ Other Firearms to be added in the future. Customizable firearm may be added in t
 
 ```
 firearm_test/
-├── Firearm_Test.java                    # Entry point with 4 demo scenarios
+├── Firearm_Test.java                    # Entry point: small runnable demo
+├── run-tests.ps1                        # Compile + run the JUnit suite
+├── lib/
+│   └── junit-platform-console-standalone-1.11.4.jar  # Bundled JUnit 5 runner
 └── FunctionClass/
     ├── Firearm.java                     # Abstract base: holds magazine/chamber/bolt, defines fire/cycle
     ├── AutoLoadClosedBoltFirearms.java  # Concrete closed-bolt auto-loading implementation
@@ -23,6 +26,7 @@ firearm_test/
     ├── Chamber.java                     # Chamber: chambering/firing/ejection & state management
     ├── Bolt.java                        # Bolt: open/closed/malfunction state
     ├── Ammunition.java                  # Ammunition: caliber + ammo type
+    ├── FirearmTest.java                 # JUnit 5 tests for the operating cycle
     └── Enums/
         ├── Caliber.java                 # Caliber enum (9mm, 45ACP, 762x51, etc.)
         └── AmmoType.java                # Ammo type enum (HP, FMJ, AP)
@@ -55,15 +59,38 @@ javac -d out Firearm_Test.java FunctionClass/*.java FunctionClass/Enums/*.java
 java -cp out Firearm_Test
 ```
 
-## Demo Scenarios
+## Demo
 
-The `main` method in `Firearm_Test.java` runs four scenarios:
+The `main` method in `Firearm_Test.java` runs a short demonstration: it builds a Glock 17 (9mm, 17-round magazine), loads 5 rounds, chambers the first one, and fires three shots, printing the running state to the console.
 
-It simulates an Glock 17 Pistol with a 17-round magazine.
-1. **Fire on empty chamber** – pulling the trigger without chambering a round; firing is blocked.
-2. **Partial load** – load 3 rounds, attempt 5 shots, and watch the bolt lock back when empty.
-3. **Full load** – fill all 17 rounds and fire continuously.
-4. **Overload attempt** – try to stuff 19 rounds into a 17-round magazine to verify overflow protection.
+## Testing
+
+The behavioral checks live in `FunctionClass/FirearmTest.java` as **JUnit 5** tests (no longer hard-coded in `main`). JUnit is bundled as a standalone console launcher in `lib/`, so no extra build tool is required.
+
+Run the suite with the helper script:
+
+```powershell
+./run-tests.ps1
+```
+
+Or invoke it manually:
+
+```bash
+# Compile sources + tests
+javac -cp lib/junit-platform-console-standalone-1.11.4.jar -d out Firearm_Test.java FunctionClass/*.java FunctionClass/Enums/*.java
+
+# Run the tests
+java -jar lib/junit-platform-console-standalone-1.11.4.jar execute -cp out --scan-classpath --details=tree
+```
+
+The four covered scenarios (simulating a Glock 17 with a 17-round magazine):
+
+1. **Fire on empty chamber** – pulling the trigger without chambering a round; firing is blocked and no round is consumed.
+2. **Partial load** – load 3 rounds, fire 5 times, and verify the bolt locks back once the magazine runs dry.
+3. **Full load** – load 17 rounds, fire 5 times, and verify exactly the chambered round plus 5 fired rounds are gone.
+4. **Overload attempt** – stuff 19 rounds into a 17-round magazine and verify capacity is never exceeded.
+
+> Note: the tests live in package `FunctionClass` so they can assert on the package-private state enums (`MagazineState`, `ChamberState`, `BoltState`).
 
 ## Roadmap
 
