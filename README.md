@@ -71,7 +71,7 @@ The `main` method in `Firearm_Test.java` runs a short demonstration: it builds a
 
 ## Testing
 
-The behavioral checks live in `src/test/java/FunctionClass/FirearmTest.java` as **JUnit 5** tests (no longer hard-coded in `main`). Run them with:
+The behavioral checks live in `src/test/java/FunctionClass/FirearmTest.java` as **JUnit 5** tests. Run them with:
 
 ```bash
 ./mvnw test
