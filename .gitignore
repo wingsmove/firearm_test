@@ -18,8 +18,6 @@ target/
 
 # Package Files #
 *.jar
-# ...but keep the bundled JUnit test runner
-!lib/*.jar
 *.war
 *.nar
 *.ear

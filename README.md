@@ -13,23 +13,29 @@ Other Firearms to be added in the future. Customizable firearm may be added in t
 
 ## Project Structure
 
+A standard Maven layout:
+
 ```
 firearm_test/
-├── Firearm_Test.java                    # Entry point: small runnable demo
-├── run-tests.ps1                        # Compile + run the JUnit suite
-├── lib/
-│   └── junit-platform-console-standalone-1.11.4.jar  # Bundled JUnit 5 runner
-└── FunctionClass/
-    ├── Firearm.java                     # Abstract base: holds magazine/chamber/bolt, defines fire/cycle
-    ├── AutoLoadClosedBoltFirearms.java  # Concrete closed-bolt auto-loading implementation
-    ├── Magazine.java                    # Magazine: load/unload, capacity & state management
-    ├── Chamber.java                     # Chamber: chambering/firing/ejection & state management
-    ├── Bolt.java                        # Bolt: open/closed/malfunction state
-    ├── Ammunition.java                  # Ammunition: caliber + ammo type
-    ├── FirearmTest.java                 # JUnit 5 tests for the operating cycle
-    └── Enums/
-        ├── Caliber.java                 # Caliber enum (9mm, 45ACP, 762x51, etc.)
-        └── AmmoType.java                # Ammo type enum (HP, FMJ, AP)
+├── pom.xml                              # Maven build (JUnit 5, compiler, surefire)
+├── mvnw / mvnw.cmd                      # Maven Wrapper (no global Maven needed)
+├── .mvn/wrapper/                        # Wrapper configuration
+└── src/
+    ├── main/java/
+    │   ├── Firearm_Test.java            # Entry point: small runnable demo
+    │   └── FunctionClass/
+    │       ├── Firearm.java                     # Abstract base: holds magazine/chamber/bolt, defines fire/cycle
+    │       ├── AutoLoadClosedBoltFirearms.java  # Concrete closed-bolt auto-loading implementation
+    │       ├── Magazine.java                    # Magazine: load/unload, capacity & state management
+    │       ├── Chamber.java                     # Chamber: chambering/firing/ejection & state management
+    │       ├── Bolt.java                        # Bolt: open/closed/malfunction state
+    │       ├── Ammunition.java                  # Ammunition: caliber + ammo type
+    │       └── Enums/
+    │           ├── Caliber.java                 # Caliber enum (9mm, 45ACP, 762x51, etc.)
+    │           └── AmmoType.java                # Ammo type enum (HP, FMJ, AP)
+    └── test/java/
+        └── FunctionClass/
+            └── FirearmTest.java         # JUnit 5 tests for the operating cycle
 ```
 
 ## Component States
@@ -49,14 +55,14 @@ firearm_test/
 
 ## Build & Run
 
-Requires JDK 8 or newer. From the project root:
+Built with [Maven](https://maven.apache.org/). The bundled **Maven Wrapper** (`mvnw` / `mvnw.cmd`) downloads the correct Maven version automatically, so only a JDK 17+ is required. Use `mvn` directly if you already have Maven installed.
 
 ```bash
-# Compile
-javac -d out Firearm_Test.java FunctionClass/*.java FunctionClass/Enums/*.java
+# Compile and package (Windows: use .\mvnw.cmd)
+./mvnw package
 
-# Run
-java -cp out Firearm_Test
+# Run the demo
+./mvnw exec:java
 ```
 
 ## Demo
@@ -65,22 +71,10 @@ The `main` method in `Firearm_Test.java` runs a short demonstration: it builds a
 
 ## Testing
 
-The behavioral checks live in `FunctionClass/FirearmTest.java` as **JUnit 5** tests (no longer hard-coded in `main`). JUnit is bundled as a standalone console launcher in `lib/`, so no extra build tool is required.
-
-Run the suite with the helper script:
-
-```powershell
-./run-tests.ps1
-```
-
-Or invoke it manually:
+The behavioral checks live in `src/test/java/FunctionClass/FirearmTest.java` as **JUnit 5** tests (no longer hard-coded in `main`). Run them with:
 
 ```bash
-# Compile sources + tests
-javac -cp lib/junit-platform-console-standalone-1.11.4.jar -d out Firearm_Test.java FunctionClass/*.java FunctionClass/Enums/*.java
-
-# Run the tests
-java -jar lib/junit-platform-console-standalone-1.11.4.jar execute -cp out --scan-classpath --details=tree
+./mvnw test
 ```
 
 The four covered scenarios (simulating a Glock 17 with a 17-round magazine):
