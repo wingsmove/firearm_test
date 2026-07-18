@@ -1,6 +1,7 @@
 package FunctionClass;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
@@ -125,5 +126,106 @@ class FirearmTest {
         long bangs = captured.toString().lines().filter(line -> line.contains("Bang!")).count();
         assertEquals(rounds, bangs,
                 "Every distinct round should fire once (regression guard for shared ammo instances)");
+    }
+
+    @Test
+    @DisplayName("Opening the bolt ejects the chambered round")
+    void openingBoltEmptiesChamber() {
+        Firearm gun = buildGlock17(3);
+
+        gun.cycle();
+        assertEquals(Chamber.ChamberState.LOADED, gun.getChamber().getState());
+
+        gun.openBolt();
+
+        assertEquals(Bolt.BoltState.OPEN, gun.getBolt().getState());
+        assertEquals(Chamber.ChamberState.EMPTY, gun.getChamber().getState(),
+                "An open bolt should always leave the chamber empty");
+        assertNull(gun.getChamber().getAmmunition(),
+                "The round is extracted from the chamber when the bolt opens");
+    }
+
+    @Test
+    @DisplayName("Firing with the bolt open does nothing")
+    void fireWithBoltOpenDoesNothing() {
+        Firearm gun = buildGlock17(3);
+
+        gun.cycle();
+        gun.openBolt();
+
+        gun.fire();
+
+        assertEquals(Bolt.BoltState.OPEN, gun.getBolt().getState());
+        assertEquals(Chamber.ChamberState.EMPTY, gun.getChamber().getState(),
+                "An open bolt is out of battery with an empty chamber, so nothing fires");
+    }
+
+    @Test
+    @DisplayName("A magazine passed to the constructor counts as inserted")
+    void constructorInsertsMagazine() {
+        Firearm gun = buildGlock17(5);
+
+        gun.cycle();
+
+        assertEquals(Chamber.ChamberState.LOADED, gun.getChamber().getState(),
+                "A gun built with a magazine should feed on cycle");
+        assertEquals(4, gun.getMagazine().getCurrentCapacity());
+    }
+
+    @Test
+    @DisplayName("With no magazine inserted, cycling closes the bolt but does not feed")
+    void removedMagazineDoesNotFeed() {
+        Magazine mag = new Magazine(MAG_CAPACITY, Caliber._9mm);
+        for (int i = 0; i < 5; i++) {
+            mag.load1Round(new Ammunition(Caliber._9mm, AmmoType.FMJ));
+        }
+        Firearm gun = new AutoLoadClosedBoltFirearms(mag, new Chamber(Caliber._9mm, null), new Bolt());
+
+        gun.removeMagazine();
+        assertNull(gun.getMagazine(), "The gun should hold no magazine after removal");
+
+        gun.cycle();
+
+        assertEquals(Bolt.BoltState.CLOSED, gun.getBolt().getState(),
+                "The bolt should close even without a magazine");
+        assertEquals(Chamber.ChamberState.EMPTY, gun.getChamber().getState(),
+                "Nothing should be chambered when no magazine is inserted");
+        assertEquals(5, mag.getCurrentCapacity(),
+                "The removed magazine keeps all its rounds");
+    }
+
+    @Test
+    @DisplayName("Re-inserting a magazine lets the gun feed again")
+    void reinsertedMagazineFeedsAgain() {
+        Firearm gun = buildGlock17(5);
+        gun.removeMagazine();
+        gun.cycle();
+        assertEquals(Chamber.ChamberState.EMPTY, gun.getChamber().getState());
+
+        Magazine fresh = new Magazine(MAG_CAPACITY, Caliber._9mm);
+        fresh.load1Round(new Ammunition(Caliber._9mm, AmmoType.FMJ));
+        gun.insertMagazine(fresh);
+        gun.cycle();
+
+        assertEquals(Chamber.ChamberState.LOADED, gun.getChamber().getState());
+        assertEquals(Bolt.BoltState.CLOSED, gun.getBolt().getState());
+        assertEquals(0, gun.getMagazine().getCurrentCapacity(),
+                "The freshly inserted magazine should have fed its single round");
+    }
+
+    @Test
+    @DisplayName("chamberLoad hand-loads a single round without a magazine")
+    void chamberLoadHandLoadsSingleRound() {
+        Firearm gun = buildGlock17(0);
+        gun.removeMagazine();
+
+        gun.chamberLoad(new Ammunition(Caliber._9mm, AmmoType.FMJ));
+
+        assertEquals(Chamber.ChamberState.LOADED, gun.getChamber().getState());
+        assertEquals(Bolt.BoltState.CLOSED, gun.getBolt().getState());
+
+        gun.fire();
+        assertEquals(Chamber.ChamberState.FIRED, gun.getChamber().getState(),
+                "A hand-loaded round should fire like any other");
     }
 }

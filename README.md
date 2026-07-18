@@ -5,10 +5,13 @@ Other Firearms to be added in the future. Customizable firearm may be added in t
 
 ## Features
 
-- **Ammunition modeling**: every round records its caliber and ammo type.
+- **Ammunition modeling**: every round records its caliber, ammo type, and firing state (`UNFIRED` / `FIRED`), so a spent round is never fired twice.
 - **State-machine driven**: the magazine, chamber, and bolt each maintain their own state and transition.
 - **Full operating cycle**: supports `fire()` and `cycle()` for a closed-bolt auto-loading firearm.
-- **Malfunction clearing**: `clearMalfunction()` resets each component out of its failure state.
+- **Coordinated bolt operations**: `openBolt()` retracts the bolt and extracts the chambered round (an open bolt always leaves the chamber empty, unless malfunctioned); `closeBolt()` closes the bolt and feeds a round when a magazine is inserted.
+- **Magazine management**: `insertMagazine()` / `removeMagazine()` track whether a magazine is present (`magInserted`); with no magazine the bolt still closes but nothing is chambered.
+- **Manual chambering**: `chamberLoad()` hand-loads a single round directly into the chamber (no magazine required).
+- **Malfunction handling**: caliber mismatches, double feeds, etc. set a component to `MALFUNCTIONED`; `clearMalfunction()` resets each component out of its failure state.
 - **Extensible architecture**: `Firearm` is an abstract base class, making it easy to add more firearm types in the future (open-bolt, bolt-action, etc.).
 
 ## Project Structure
@@ -35,7 +38,7 @@ firearm_test/
     │           └── AmmoType.java                # Ammo type enum (HP, FMJ, AP)
     └── test/java/
         └── FunctionClass/
-            └── FirearmTest.java         # JUnit 5 tests for the operating cycle
+            └── FirearmTest.java         # JUnit 5 tests (operating cycle, ammo state, magazine handling)
 ```
 
 ## Component States
@@ -45,13 +48,26 @@ firearm_test/
 | Magazine | `EMPTY` / `LOADED` / `FULL` / `MALFUNCTIONED` |
 | Chamber  | `EMPTY` / `LOADED` / `FIRED` / `MALFUNCTIONED` |
 | Bolt     | `OPEN` / `CLOSED` / `MALFUNCTIONED` |
+| Ammunition | `UNFIRED` / `FIRED` |
 
 ## How It Works
 
-1. Load `Ammunition` into a `Magazine` whose caliber matches the round.
-2. Call `cycle()`: bolt opens → old round is cleared from the chamber → a fresh round is fed from the magazine → bolt closes.
-3. Call `fire()`: the shot is only released (`Bang!`) when the **bolt is closed**, the **chamber is loaded**, and there is **no malfunction**.
+1. Load `Ammunition` into a `Magazine` whose caliber matches the round, then put the magazine in the firearm (passing it to the constructor counts as inserted, or call `insertMagazine()`).
+2. Call `cycle()`: `openBolt()` retracts the bolt and extracts any chambered round → `closeBolt()` closes the bolt and, if a magazine is inserted, feeds a fresh round into the chamber.
+3. Call `fire()`: the shot is only released (`Bang!`) when the **bolt is closed**, the **chamber is loaded**, there is **no malfunction**, and the **round is unfired**. The fired round is then marked `FIRED`.
 4. Repeat `fire()` + `cycle()` for sustained fire; once the magazine runs dry, the bolt holds open.
+
+### Key operations (`Firearm`)
+
+| Method | Behavior |
+| --- | --- |
+| `fire()` | Fires if in battery (bolt closed, chamber loaded, unfired round). |
+| `cycle()` | Ejects the spent round and chambers the next one from the magazine. |
+| `openBolt()` | Opens the bolt and empties the chamber (extracts the round). |
+| `closeBolt()` | Closes the bolt; feeds from the magazine if one is inserted. |
+| `insertMagazine(mag)` / `removeMagazine()` | Insert/remove a magazine; toggles `magInserted`. Removing a magazine sets it to `null`. |
+| `chamberLoad(round)` | Hand-loads a single round into the chamber without a magazine. |
+| `clearMalfunction()` | Clears malfunctions on the magazine, chamber, and bolt. |
 
 ## Build & Run
 
@@ -77,14 +93,33 @@ The behavioral checks live in `src/test/java/FunctionClass/FirearmTest.java` as 
 ./mvnw test
 ```
 
-The four covered scenarios (simulating a Glock 17 with a 17-round magazine):
+The covered scenarios (simulating a Glock 17 with a 17-round magazine):
 
-1. **Fire on empty chamber** – pulling the trigger without chambering a round; firing is blocked and no round is consumed.
-2. **Partial load** – load 3 rounds, fire 5 times, and verify the bolt locks back once the magazine runs dry.
-3. **Full load** – load 17 rounds, fire 5 times, and verify exactly the chambered round plus 5 fired rounds are gone.
-4. **Overload attempt** – stuff 19 rounds into a 17-round magazine and verify capacity is never exceeded.
+**Firing & cycling**
 
-> Note: the tests live in package `FunctionClass` so they can assert on the package-private state enums (`MagazineState`, `ChamberState`, `BoltState`).
+- **Fire on empty chamber** – pulling the trigger without chambering a round is blocked and no round is consumed.
+- **Partial load** – load 3 rounds, fire 5 times, and verify the bolt locks back once the magazine runs dry.
+- **Full load** – load 17 rounds, fire 5 times, and verify exactly the chambered round plus 5 fired rounds are gone.
+- **Overload attempt** – stuff 19 rounds into a 17-round magazine and verify capacity is never exceeded.
+
+**Ammunition state**
+
+- **Round marked fired** – a chambered round is `UNFIRED`, then `FIRED` after firing.
+- **Each round fires once** – distinct rounds each fire exactly once (regression guard against reusing a single `Ammunition` instance).
+
+**Bolt behavior**
+
+- **Opening the bolt empties the chamber** – `openBolt()` extracts the chambered round.
+- **Firing with the bolt open does nothing** – an out-of-battery bolt cannot fire.
+
+**Magazine handling**
+
+- **Constructor inserts the magazine** – a gun built with a magazine feeds on cycle.
+- **No magazine → no feed** – after `removeMagazine()`, cycling closes the bolt but chambers nothing and consumes no rounds.
+- **Re-inserting feeds again** – `insertMagazine()` restores feeding.
+- **Hand-loading** – `chamberLoad()` chambers and fires a single round with no magazine present.
+
+> Note: the tests live in package `FunctionClass` so they can assert on the package-private state enums (`MagazineState`, `ChamberState`, `BoltState`, `AmmoState`).
 
 ## Roadmap
 

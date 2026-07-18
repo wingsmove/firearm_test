@@ -4,6 +4,7 @@ public class AutoLoadClosedBoltFirearms extends Firearm {
 
     public AutoLoadClosedBoltFirearms(Magazine magazine, Chamber chamber, Bolt bolt) {
         super(magazine, chamber, bolt);
+        this.magInserted = (magazine != null);
     }
 
     @Override
@@ -22,16 +23,41 @@ public class AutoLoadClosedBoltFirearms extends Firearm {
     public void cycle() {
         if (!malfunctioned()) {
             System.out.println("Cycling firearm...");
-            bolt.open();
-            chamber.unload();
+            openBolt();
             System.out.println("Chamber unloaded...");
-            if (magazine.getState() != Magazine.MagazineState.EMPTY) {
+            if (!magInserted) {
+                System.out.println("Magazine is not inserted! Bolt closes, but does not load chamber.");
+                closeBolt();
+            } else if (magazine.getState() != Magazine.MagazineState.EMPTY) {
                 System.out.println("Loading chamber with 1 round from magazine...");
-                chamber.load(magazine.unload1Round());
-                bolt.close();
+                closeBolt();
             } else {
                 System.out.println("Magazine is empty! Bolt holds open!");
             }
+        }
+    }
+
+    @Override
+    public void insertMagazine(Magazine magazine) {
+        System.out.println("Inserting magazine...");
+        this.magazine = magazine;
+        this.magInserted = true;
+    }
+
+    @Override
+    public void removeMagazine() {
+        System.out.println("Removing magazine...");
+        this.magazine = null;
+        this.magInserted = false;
+    }
+
+    @Override
+    public void chamberLoad(Ammunition ammunition) {
+        if (!malfunctioned()) {
+            System.out.println("Hand-loading a single round into the chamber...");
+            openBolt();
+            chamber.load(ammunition);
+            bolt.close();
         }
     }
 
