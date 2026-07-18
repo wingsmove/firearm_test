@@ -6,10 +6,21 @@ import FunctionClass.Enums.Caliber;
 public class Ammunition {
     private Caliber caliber;
     private AmmoType ammoType;
+    private AmmoState ammoState;
+
+    enum AmmoState {
+        UNFIRED,
+        FIRED
+    }
 
     public Ammunition(Caliber caliber, AmmoType ammoType) {
+        this(caliber, ammoType, AmmoState.UNFIRED);
+    }
+
+    public Ammunition(Caliber caliber, AmmoType ammoType, AmmoState ammoState) {
         this.caliber = caliber;
         this.ammoType = ammoType;
+        this.ammoState = ammoState;
     }
 
     public Caliber getCaliber() {
@@ -20,6 +31,14 @@ public class Ammunition {
         return ammoType;
     }
 
+    public AmmoState getAmmoState() {
+        return ammoState;
+    }
+
+    public void setAmmoState(AmmoState ammoState) {
+        this.ammoState = ammoState;
+    }
+    
     public String toString() {
         return "Ammunition: " + caliber + " " + ammoType;
     }

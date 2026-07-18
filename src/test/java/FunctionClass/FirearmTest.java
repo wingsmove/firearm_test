@@ -2,6 +2,9 @@ package FunctionClass;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -13,10 +16,9 @@ class FirearmTest {
     private static final int MAG_CAPACITY = 17;
 
     private Firearm buildGlock17(int roundsToLoad) {
-        Ammunition round = new Ammunition(Caliber._9mm, AmmoType.FMJ);
         Magazine magazine = new Magazine(MAG_CAPACITY, Caliber._9mm);
         for (int i = 0; i < roundsToLoad; i++) {
-            magazine.load1Round(round);
+            magazine.load1Round(new Ammunition(Caliber._9mm, AmmoType.FMJ));
         }
         Chamber chamber = new Chamber(Caliber._9mm, null);
         Bolt bolt = new Bolt();
@@ -76,15 +78,52 @@ class FirearmTest {
     @Test
     @DisplayName("Overloading is capped at magazine capacity")
     void overloadIsCapped() {
-        Ammunition round = new Ammunition(Caliber._9mm, AmmoType.FMJ);
         Magazine magazine = new Magazine(MAG_CAPACITY, Caliber._9mm);
 
         for (int i = 0; i < MAG_CAPACITY + 2; i++) {
-            magazine.load1Round(round);
+            magazine.load1Round(new Ammunition(Caliber._9mm, AmmoType.FMJ));
         }
 
         assertEquals(Magazine.MagazineState.FULL, magazine.getState());
         assertEquals(MAG_CAPACITY, magazine.getCurrentCapacity(),
                 "Magazine must never exceed its capacity");
+    }
+
+    @Test
+    @DisplayName("A round is marked FIRED after firing")
+    void firedRoundIsMarkedFired() {
+        Firearm gun = buildGlock17(2);
+
+        gun.cycle();
+        assertEquals(Ammunition.AmmoState.UNFIRED, gun.getChamber().getAmmunition().getAmmoState(),
+                "A freshly chambered round should be unfired");
+
+        gun.fire();
+        assertEquals(Ammunition.AmmoState.FIRED, gun.getChamber().getAmmunition().getAmmoState(),
+                "The chambered round should be marked fired after firing");
+    }
+
+    @Test
+    @DisplayName("Each distinct round fires exactly once")
+    void eachRoundFiresIndependently() {
+        int rounds = 3;
+        Firearm gun = buildGlock17(rounds);
+
+        PrintStream originalOut = System.out;
+        ByteArrayOutputStream captured = new ByteArrayOutputStream();
+        System.setOut(new PrintStream(captured));
+        try {
+            gun.cycle();
+            for (int shot = 0; shot < rounds; shot++) {
+                gun.fire();
+                gun.cycle();
+            }
+        } finally {
+            System.setOut(originalOut);
+        }
+
+        long bangs = captured.toString().lines().filter(line -> line.contains("Bang!")).count();
+        assertEquals(rounds, bangs,
+                "Every distinct round should fire once (regression guard for shared ammo instances)");
     }
 }

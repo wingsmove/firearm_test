@@ -79,6 +79,10 @@ public class Chamber {
         return this.state;
     }
 
+    public Ammunition getAmmunition() {
+        return this.ammunition;
+    }
+
     public boolean malfunctioned() {
         if (this.state == ChamberState.MALFUNCTIONED) {
             System.out.println("Chamber is malfunctioned!");

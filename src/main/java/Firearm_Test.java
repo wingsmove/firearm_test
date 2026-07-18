@@ -16,10 +16,9 @@ public class Firearm_Test {
     private static final int MAG_CAPACITY = 17;
 
     public static void main(String[] args) {
-        Ammunition round = new Ammunition(Caliber._9mm, AmmoType.FMJ);
         Magazine magazine = new Magazine(MAG_CAPACITY, Caliber._9mm);
         for (int i = 0; i < 5; i++) {
-            magazine.load1Round(round);
+            magazine.load1Round(new Ammunition(Caliber._9mm, AmmoType.FMJ));
         }
         Firearm gun = new AutoLoadClosedBoltFirearms(magazine, new Chamber(Caliber._9mm, null), new Bolt());
 
