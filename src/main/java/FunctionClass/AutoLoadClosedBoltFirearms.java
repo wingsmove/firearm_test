@@ -11,10 +11,8 @@ public class AutoLoadClosedBoltFirearms extends Firearm {
     public void fire() {
         if (!malfunctioned()
                 && bolt.getState() == Bolt.BoltState.CLOSED
-                && chamber.getState() == Chamber.ChamberState.LOADED
-                && chamber.getAmmunition().getAmmoState() == Ammunition.AmmoState.UNFIRED) {
+                && chamber.getState() == Chamber.ChamberState.LOADED) {
             System.out.println("Firing firearm...");
-            chamber.getAmmunition().setAmmoState(Ammunition.AmmoState.FIRED);
             chamber.fire();
         }
     }

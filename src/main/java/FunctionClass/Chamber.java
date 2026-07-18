@@ -60,7 +60,12 @@ public class Chamber {
             System.out.println("Chamber is not loaded! Cannot fire!");
             return;
         }
+        if (ammunition.getAmmoState() != Ammunition.AmmoState.UNFIRED) {
+            System.out.println("Round already fired! Cannot fire!");
+            return;
+        }
         System.out.println("Bang!");
+        ammunition.setAmmoState(Ammunition.AmmoState.FIRED);
         this.state = ChamberState.FIRED;
     }
 

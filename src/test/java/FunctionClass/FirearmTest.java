@@ -227,5 +227,6 @@ class FirearmTest {
         gun.fire();
         assertEquals(Chamber.ChamberState.FIRED, gun.getChamber().getState(),
                 "A hand-loaded round should fire like any other");
+        assertEquals(Bolt.BoltState.CLOSED, gun.getBolt().getState());
     }
 }
