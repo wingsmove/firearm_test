@@ -1,7 +1,9 @@
 package FunctionClass;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
@@ -228,5 +230,47 @@ class FirearmTest {
         assertEquals(Chamber.ChamberState.FIRED, gun.getChamber().getState(),
                 "A hand-loaded round should fire like any other");
         assertEquals(Bolt.BoltState.CLOSED, gun.getBolt().getState());
+    }
+
+    @Test
+    @DisplayName("Wrong caliber jams the magazine, then clearMalfunction recovers it")
+    void caliberMismatchMalfunctionsAndRecovers() {
+        Magazine mag = new Magazine(MAG_CAPACITY, Caliber._9mm);
+        mag.load1Round(new Ammunition(Caliber._45ACP, AmmoType.FMJ));
+        Firearm gun = new AutoLoadClosedBoltFirearms(mag, new Chamber(Caliber._9mm, null), new Bolt());
+
+        assertTrue(gun.malfunctioned(), "A caliber mismatch should malfunction the magazine");
+
+        gun.cycle();
+        assertEquals(Chamber.ChamberState.EMPTY, gun.getChamber().getState(),
+                "A malfunctioned gun must not chamber a round");
+
+        gun.clearMalfunction();
+        assertFalse(gun.malfunctioned());
+
+        gun.getMagazine().load1Round(new Ammunition(Caliber._9mm, AmmoType.FMJ));
+        gun.cycle();
+        assertEquals(Chamber.ChamberState.LOADED, gun.getChamber().getState(),
+                "After clearing and reloading correctly the gun should work again");
+    }
+
+    @Test
+    @DisplayName("Dry-firing an empty gun many times is safe and stays locked open")
+    void repeatedDryFireIsSafe() {
+        Firearm gun = buildGlock17(1);
+
+        gun.cycle();
+        gun.fire();
+        gun.cycle();
+
+        for (int i = 0; i < 10; i++) {
+            gun.fire();
+            gun.cycle();
+        }
+
+        assertEquals(Bolt.BoltState.OPEN, gun.getBolt().getState(),
+                "The bolt should stay locked open on an empty magazine");
+        assertEquals(Chamber.ChamberState.EMPTY, gun.getChamber().getState());
+        assertEquals(0, gun.getMagazine().getCurrentCapacity());
     }
 }

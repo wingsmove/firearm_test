@@ -49,11 +49,7 @@ public abstract class Firearm {
         return bolt;
     }
 
-    /**
-     * Opens the bolt and clears the chamber. Whenever the bolt is retracted the
-     * extractor pulls the round/case out of the chamber, so an open bolt should
-     * always leave the chamber empty (unless the firearm is malfunctioned).
-     */
+    // Opens the bolt and clears the chamber.
     public void openBolt() {
         if (!malfunctioned()) {
             bolt.open();
@@ -61,6 +57,7 @@ public abstract class Firearm {
         }
     }
 
+    // Closes the bolt and loads the chamber with 1 round from the magazine.
     public void closeBolt() {
         if (!malfunctioned()) {
             bolt.close();

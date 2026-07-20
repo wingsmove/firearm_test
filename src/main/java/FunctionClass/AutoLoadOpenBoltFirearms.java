@@ -1,18 +1,21 @@
 package FunctionClass;
 
-public class AutoLoadClosedBoltFirearms extends Firearm {
+public class AutoLoadOpenBoltFirearms extends Firearm {
 
-    public AutoLoadClosedBoltFirearms(Magazine magazine, Chamber chamber, Bolt bolt) {
+    public AutoLoadOpenBoltFirearms(Magazine magazine, Chamber chamber, Bolt bolt) {
         super(magazine, chamber, bolt);
         this.magInserted = (magazine != null);
     }
 
     @Override
     public void fire() {
-        if (!malfunctioned()
-                && bolt.getState() == Bolt.BoltState.CLOSED
-                && chamber.getState() == Chamber.ChamberState.LOADED) {
+        if (!malfunctioned() && bolt.getState() == Bolt.BoltState.OPEN) {
             System.out.println("Firing firearm...");
+            // The bolt runs forward. closeBolt() feeds from the magazine when one
+            // is inserted; if the chamber is already hand-loaded this triggers a
+            // double feed (malfunction) via Chamber.load(). With no magazine and an
+            // empty chamber the bolt simply closes on nothing.
+            closeBolt();
             chamber.fire();
         }
     }
@@ -23,15 +26,6 @@ public class AutoLoadClosedBoltFirearms extends Firearm {
             System.out.println("Cycling firearm...");
             openBolt();
             System.out.println("Chamber unloaded...");
-            if (!magInserted) {
-                System.out.println("Magazine is not inserted! Bolt closes, but does not load chamber.");
-                closeBolt();
-            } else if (magazine.getState() != Magazine.MagazineState.EMPTY) {
-                System.out.println("Loading chamber with 1 round from magazine...");
-                closeBolt();
-            } else {
-                System.out.println("Magazine is empty! Bolt holds open!");
-            }
         }
     }
 
@@ -55,7 +49,6 @@ public class AutoLoadClosedBoltFirearms extends Firearm {
             System.out.println("Hand-loading a single round into the chamber...");
             openBolt();
             chamber.load(ammunition);
-            closeBolt();
         }
     }
 
