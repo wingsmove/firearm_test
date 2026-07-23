@@ -6,7 +6,7 @@ import FunctionClass.Enums.Caliber;
 
 public class Magazine {
 
-    enum MagazineState {
+    public enum MagazineState {
         EMPTY,
         LOADED,
         FULL,

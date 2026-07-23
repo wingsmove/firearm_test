@@ -8,7 +8,7 @@ public class Ammunition {
     private AmmoType ammoType;
     private AmmoState ammoState;
 
-    enum AmmoState {
+    public enum AmmoState {
         UNFIRED,
         FIRED
     }

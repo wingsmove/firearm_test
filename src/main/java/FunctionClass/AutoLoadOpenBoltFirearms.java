@@ -16,7 +16,6 @@ public class AutoLoadOpenBoltFirearms extends Firearm {
             // double feed (malfunction) via Chamber.load(). With no magazine and an
             // empty chamber the bolt simply closes on nothing.
             closeBolt();
-            chamber.fire();
         }
     }
 
@@ -52,4 +51,19 @@ public class AutoLoadOpenBoltFirearms extends Firearm {
         }
     }
 
+    @Override
+    public void closeBolt() {
+        if (!malfunctioned()) {
+            if(magInserted) {
+                chamber.load(magazine.unload1Round());
+            }
+            if (!malfunctioned() && bolt.getState() == Bolt.BoltState.OPEN) {
+                System.out.println("Bolt closed! Firing firearm...");
+                chamber.fire();
+            }
+            bolt.close();
+
+
+        }
+    }
 }
