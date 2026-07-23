@@ -1,132 +1,167 @@
-# firearm_test
+# Firearm State Machine Simulator
 
-A Java **state machine that simulates how a firearm works**. Using an object-oriented design, it models auto-loading firearms — both **closed-bolt** (think Glock 17) and **open-bolt** (think a submachine gun) — through the full cycle of loading, chambering, firing, and cycling, including common malfunctions.
-More firearm types and customizable firearms may be added in the future.
+A full-stack teaching project built around a Java firearm state machine. The existing Java domain model remains the source of truth; Spring Boot exposes its transitions through a REST API, and React renders the current state and lets users trigger supported actions.
+
+> This project is a software state-machine demonstration. It is not operational guidance for real firearms.
+
+## Stack
+
+- Java 17 and Maven
+- Spring Boot 4
+- React 19
+- Vite
+- TypeScript
+- JUnit 5
+
+## Architecture
+
+```text
+React UI (localhost:5173)
+        |
+        | JSON / REST
+        v
+Spring Boot API (localhost:8080)
+        |
+        v
+Existing Java state machine
+  Firearm / Magazine / Chamber / Bolt / Ammunition
+```
+
+The UI does not duplicate transition rules. Every action is sent to the backend, which invokes the original domain classes and returns a new immutable snapshot.
 
 ## Features
 
-- **Two firing systems**: `AutoLoadClosedBoltFirearms` (fires from a closed bolt) and `AutoLoadOpenBoltFirearms` (fires from an open bolt), both extending the shared `Firearm` base.
-- **Ammunition modeling**: every round records its caliber, ammo type, and firing state (`UNFIRED` / `FIRED`), so a spent round is never fired twice.
-- **State-machine driven**: the magazine, chamber, and bolt each maintain their own state and transition.
-- **Coordinated bolt operations**: `openBolt()` retracts the bolt and extracts the chambered round (an open bolt always leaves the chamber empty, unless malfunctioned); `closeBolt()` closes the bolt and feeds a round when a magazine is inserted.
-- **Magazine management**: `insertMagazine()` / `removeMagazine()` track whether a magazine is present (`magInserted`); removing a magazine sets it to `null`.
-- **Manual chambering**: `chamberLoad()` hand-loads a single round directly into the chamber (no magazine required).
-- **Malfunction handling**: caliber mismatches and double feeds set a component to `MALFUNCTIONED`; `clearMalfunction()` resets each component out of its failure state.
-- **Extensible architecture**: `Firearm` is an abstract base class, making it easy to add more firearm types in the future (bolt-action, etc.).
+- Switch between closed-bolt and open-bolt simulations.
+- Configure caliber, ammunition type, magazine capacity, and initial round count.
+- Inspect magazine, chamber, bolt, and ammunition state in one responsive UI.
+- Trigger firing, cycling, bolt, magazine, chamber, and malfunction-recovery actions.
+- Review a short server-generated event history.
+- Preserve the original state-machine tests and add service-level backend tests.
 
 ## Project Structure
 
-A standard Maven layout:
-
-```
+```text
 firearm_test/
-├── pom.xml                              # Maven build (JUnit 5, compiler, surefire)
-├── mvnw / mvnw.cmd                      # Maven Wrapper (no global Maven needed)
-├── .mvn/wrapper/                        # Wrapper configuration
-└── src/
-    ├── main/java/
-    │   ├── Firearm_Test.java            # Entry point: small runnable demo
-    │   └── FunctionClass/
-    │       ├── Firearm.java                     # Abstract base: magazine/chamber/bolt + shared operations
-    │       ├── AutoLoadClosedBoltFirearms.java  # Fires from a closed bolt
-    │       ├── AutoLoadOpenBoltFirearms.java    # Fires from an open bolt
-    │       ├── Magazine.java                    # Magazine: load/unload, capacity & state management
-    │       ├── Chamber.java                     # Chamber: chambering/firing/ejection & state management
-    │       ├── Bolt.java                        # Bolt: open/closed/malfunction state
-    │       ├── Ammunition.java                  # Ammunition: caliber + ammo type + fired state
-    │       └── Enums/
-    │           ├── Caliber.java                 # Caliber enum (9mm, 45ACP, 762x51, etc.)
-    │           └── AmmoType.java                # Ammo type enum (HP, FMJ, AP)
-    └── test/java/
-        └── FunctionClass/
-            ├── FirearmTest.java                 # JUnit 5 tests for the closed-bolt firearm
-            └── AutoLoadOpenBoltFirearmsTest.java # JUnit 5 tests for the open-bolt firearm
+├── frontend/                         # React + Vite + TypeScript
+│   └── src/
+│       ├── components/               # Reusable simulator panels and cards
+│       ├── api.ts                    # Typed REST client
+│       ├── types.ts                  # API contracts
+│       └── App.tsx
+├── src/main/java/
+│   ├── FunctionClass/                # Existing state-machine domain model
+│   └── com/firearm/simulator/
+│       ├── api/                      # Request/response records
+│       ├── config/                   # CORS configuration
+│       ├── controller/               # REST endpoints and error handling
+│       ├── model/                    # API-facing enums
+│       └── service/                  # State-machine application service
+├── src/main/resources/
+│   └── application.properties
+├── src/test/java/                    # Domain and Spring service tests
+└── pom.xml
 ```
 
-## Component States
+## Run Locally
 
-| Component | States |
-| --- | --- |
-| Magazine | `EMPTY` / `LOADED` / `FULL` / `MALFUNCTIONED` |
-| Chamber  | `EMPTY` / `LOADED` / `FIRED` / `MALFUNCTIONED` |
-| Bolt     | `OPEN` / `CLOSED` / `MALFUNCTIONED` |
-| Ammunition | `UNFIRED` / `FIRED` |
+Requirements:
 
-## How It Works
+- JDK 17 or newer
+- Node.js 20.19+ or 22.12+ (required by Vite 8)
 
-Load `Ammunition` into a `Magazine` whose caliber matches the round, then put the magazine in the firearm (passing it to the constructor counts as inserted, or call `insertMagazine()`). From there the two firing systems differ:
+Start the backend from the repository root:
 
-**Closed bolt** (`AutoLoadClosedBoltFirearms`) — the bolt rests closed on a chambered round.
-
-1. `cycle()` to chamber the first round (`openBolt()` extracts anything in the chamber → `closeBolt()` feeds a fresh round and closes).
-2. `fire()` releases the shot when the **bolt is closed**, the **chamber is loaded**, and there is **no malfunction**; `Chamber.fire()` then checks the round is `UNFIRED` and marks it `FIRED`.
-3. Repeat `fire()` + `cycle()`; once the magazine runs dry, the bolt holds open.
-
-**Open bolt** (`AutoLoadOpenBoltFirearms`) — the bolt is held to the rear and ready state is *open*.
-
-1. `cycle()` to charge (hold the bolt open and clear the chamber).
-2. `fire()` runs the bolt forward: `closeBolt()` strips and chambers a round from the magazine, then `Chamber.fire()` fires it. Edge cases: with no magazine and an empty chamber the bolt just closes on nothing;
-3. `cycle()` again to eject the case and reopen the bolt for the next shot.
-
-### Key operations (`Firearm`)
-
-| Method | Behavior |
-| --- | --- |
-| `fire()` | *(abstract)* Fires according to the firing system (closed-bolt vs open-bolt). |
-| `cycle()` | *(abstract)* Runs the action: chamber/eject as appropriate for the type. |
-| `openBolt()` | Opens the bolt and empties the chamber (extracts the round). |
-| `closeBolt()` | Closes the bolt; feeds from the magazine if one is inserted. |
-| `insertMagazine(mag)` / `removeMagazine()` | Insert/remove a magazine; toggles `magInserted`. Removing a magazine sets it to `null`. |
-| `chamberLoad(round)` | Hand-loads a single round into the chamber without a magazine. |
-| `clearMalfunction()` | Clears malfunctions on the magazine, chamber, and bolt. |
-
-## Build & Run
-
-Built with [Maven](https://maven.apache.org/). The bundled **Maven Wrapper** (`mvnw` / `mvnw.cmd`) downloads the correct Maven version automatically, so only a JDK 17+ is required. Use `mvn` directly if you already have Maven installed.
-
-```bash
-# Compile and package (Windows: use .\mvnw.cmd)
-./mvnw package
-
-# Run the demo
-./mvnw exec:java
+```powershell
+.\mvnw.cmd spring-boot:run
 ```
 
-## Demo
+The API runs at `http://localhost:8080`.
 
-The `main` method in `Firearm_Test.java` runs a short demonstration: it builds a Glock 17 (9mm, 17-round magazine), loads 5 rounds, chambers the first one, and fires three shots, printing the running state to the console.
+In a second terminal, start the frontend:
 
-## Testing
-
-The behavioral checks live under `src/test/java/FunctionClass/` as **JUnit 5** tests, split by firing system:
-
-- `FirearmTest.java` — the closed-bolt firearm
-- `AutoLoadOpenBoltFirearmsTest.java` — the open-bolt firearm
-
-Run the whole suite with:
-
-```bash
-./mvnw test
+```powershell
+cd frontend
+npm install
+npm run dev
 ```
 
-### Closed-bolt coverage (`FirearmTest`)
+Open `http://localhost:5173`. During development, Vite proxies `/api` requests to the backend.
 
-- **Firing & cycling** — fire on empty chamber is blocked; partial load locks the bolt back when empty; full load consumes exactly the rounds fired; overloading is capped at capacity.
-- **Ammunition state** — a round goes `UNFIRED` → `FIRED`; distinct rounds each fire exactly once (regression guard against reusing one `Ammunition` instance).
-- **Bolt behavior** — `openBolt()` empties the chamber; firing with the bolt open does nothing.
-- **Magazine handling** — the constructor counts a supplied magazine as inserted; after `removeMagazine()` cycling feeds nothing; re-inserting restores feeding; `chamberLoad()` hand-loads and fires a single round.
-- **Extreme cases** — a wrong-caliber load jams the magazine and recovers after `clearMalfunction()`; repeated dry-firing on an empty gun stays safely locked open.
+## API
 
-### Open-bolt coverage (`AutoLoadOpenBoltFirearmsTest`)
+| Method | Endpoint | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/simulator` | Get the current simulator snapshot |
+| `GET` | `/api/simulator/options` | Get supported configuration values and actions |
+| `POST` | `/api/simulator/reset` | Create a fresh simulator from a JSON configuration |
+| `POST` | `/api/simulator/actions/{action}` | Apply one state-machine action |
 
-- **Charging & firing** — cannot fire until charged (bolt open); charging then firing feeds and fires from the open bolt; cycling after a shot ejects the case and reopens; each charge+fire consumes one round.
-- **No-magazine edge cases** — empty chamber + no magazine just closes the bolt; hand-loaded + no magazine fires; hand-loaded **and** a magazine inserted causes a double-feed malfunction.
-- **Extreme cases** — a full-magazine dump fires every round then runs dry safely; a wrong-caliber hand-load malfunctions the chamber; clearing a double-feed jam restores normal firing.
+Example reset:
 
-> Note: the tests live in package `FunctionClass` so they can assert on the package-private state enums (`MagazineState`, `ChamberState`, `BoltState`, `AmmoState`).
+```json
+{
+  "firingSystem": "CLOSED_BOLT",
+  "caliber": "_9mm",
+  "ammoType": "FMJ",
+  "magazineCapacity": 17,
+  "initialRounds": 5
+}
+```
+
+Supported actions are returned by `/api/simulator/options`, so the frontend does not need to maintain a separate list.
+
+## Configuration
+
+Backend:
+
+- `PORT` changes the HTTP port; default is `8080`.
+- `ALLOWED_ORIGINS` sets comma-separated browser origins; default is `http://localhost:5173`.
+
+Frontend:
+
+- `VITE_API_URL` can point the UI at a deployed API. When omitted, requests use `/api` and the local Vite proxy.
+
+Example:
+
+```powershell
+$env:VITE_API_URL = "https://api.example.com/api"
+npm run build
+```
+
+## Test and Build
+
+Backend tests:
+
+```powershell
+.\mvnw.cmd test
+```
+
+Backend production package:
+
+```powershell
+.\mvnw.cmd package
+java -jar target\firearm-test-1.0.0-SNAPSHOT.jar
+```
+
+Frontend checks and build:
+
+```powershell
+cd frontend
+npm run lint
+npm run build
+```
+
+The frontend production output is written to `frontend/dist`.
+
+## Current Scope
+
+The backend intentionally keeps one simulator session in memory. Restarting the backend resets it, and simultaneous users share the same state. This is a suitable first full-stack framework; authentication, per-user sessions, persistence, containerization, and cloud deployment can be added as separate, testable increments.
 
 ## Roadmap
 
-- More firearm types (bolt-action rifles, revolvers, etc.).
-- Richer malfunction types and clearing procedures.
-- More detailed simulation of internal operation.
+- Add per-user simulator sessions.
+- Persist saved configurations and transition histories.
+- Add OpenAPI documentation and API-level integration tests.
+- Containerize the frontend and backend.
+- Deploy a small complete environment to AWS or Azure.
+- Add more firearm state-machine types and richer malfunction states.

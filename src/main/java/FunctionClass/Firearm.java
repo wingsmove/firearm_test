@@ -49,6 +49,10 @@ public abstract class Firearm {
         return bolt;
     }
 
+    public boolean isMagazineInserted() {
+        return magInserted;
+    }
+
     // Opens the bolt and clears the chamber.
     public void openBolt() {
         if (!malfunctioned()) {

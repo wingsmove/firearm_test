@@ -2,7 +2,7 @@ package FunctionClass;
 
 public class Bolt {
 
-    enum BoltState {
+    public enum BoltState {
         OPEN,
         CLOSED,
         MALFUNCTIONED

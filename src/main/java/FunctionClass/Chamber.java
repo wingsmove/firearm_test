@@ -4,7 +4,7 @@ import FunctionClass.Enums.Caliber;
 
 public class Chamber {
 
-    enum ChamberState {
+    public enum ChamberState {
         EMPTY,
         LOADED,
         FIRED,
