@@ -70,6 +70,16 @@ jobs:
           allowed-account-ids: ${{ env.AWS_ACCOUNT_ID }}
           role-session-name: firearm-test-${{ github.run_id }}
 
+      - name: Install Lightsail Control plugin
+        shell: bash
+        run: |
+          curl --fail --silent --show-error --location \
+            "https://s3.us-west-2.amazonaws.com/lightsailctl/latest/linux-amd64/lightsailctl" \
+            --output "$RUNNER_TEMP/lightsailctl"
+          chmod +x "$RUNNER_TEMP/lightsailctl"
+          test -x "$RUNNER_TEMP/lightsailctl"
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+
       - name: Ensure Lightsail container service exists
         shell: bash
         run: |
