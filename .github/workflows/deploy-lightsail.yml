@@ -73,11 +73,12 @@ jobs:
       - name: Ensure Lightsail container service exists
         shell: bash
         run: |
-          if [[ "$(aws lightsail get-container-services \
-            --service-name "$LIGHTSAIL_SERVICE" \
+          service_name="$(aws lightsail get-container-services \
             --region "$AWS_REGION" \
-            --query 'containerServices[0].containerServiceName' \
-            --output text)" == "None" ]]; then
+            --query "containerServices[?containerServiceName=='${LIGHTSAIL_SERVICE}'] | [0].containerServiceName" \
+            --output text)"
+
+          if [[ "$service_name" == "None" ]]; then
             aws lightsail create-container-service \
               --service-name "$LIGHTSAIL_SERVICE" \
               --power micro \
@@ -88,9 +89,8 @@ jobs:
 
           for attempt in {1..60}; do
             state="$(aws lightsail get-container-services \
-              --service-name "$LIGHTSAIL_SERVICE" \
               --region "$AWS_REGION" \
-              --query 'containerServices[0].state' \
+              --query "containerServices[?containerServiceName=='${LIGHTSAIL_SERVICE}'] | [0].state" \
               --output text)"
             if [[ "$state" == "READY" || "$state" == "RUNNING" ]]; then
               exit 0
