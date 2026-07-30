@@ -109,13 +109,22 @@ jobs:
             --tag "firearm-test:${GITHUB_SHA}" \
             .
 
-          image_name="$(aws lightsail push-container-image \
+          aws lightsail push-container-image \
             --service-name "$LIGHTSAIL_SERVICE" \
             --label app \
             --image "firearm-test:${GITHUB_SHA}" \
+            --region "$AWS_REGION"
+
+          image_name="$(aws lightsail get-container-images \
+            --service-name "$LIGHTSAIL_SERVICE" \
             --region "$AWS_REGION" \
-            --query 'image.name' \
+            --query 'sort_by(containerImages, &createdAt)[-1].image' \
             --output text)"
+
+          if [[ -z "$image_name" || "$image_name" == "None" ]]; then
+            echo "Lightsail did not return the uploaded container image." >&2
+            exit 1
+          fi
 
           echo "name=$image_name" >> "$GITHUB_OUTPUT"
 
