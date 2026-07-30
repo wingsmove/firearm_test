@@ -1,0 +1,184 @@
+name: Deploy to Amazon Lightsail
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/deploy-lightsail.yml"
+      - "frontend/**"
+      - "src/**"
+      - "pom.xml"
+      - "Dockerfile"
+      - ".dockerignore"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: firearm-test-production
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: us-east-2
+  AWS_ACCOUNT_ID: "877653168003"
+  LIGHTSAIL_SERVICE: firearm-test
+  CONTAINER_NAME: app
+
+jobs:
+  test-build-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Lint and build frontend
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run lint
+          npm run build
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+
+      - name: Test backend
+        run: |
+          chmod +x mvnw
+          ./mvnw --batch-mode --no-transfer-progress test
+
+      - name: Configure short-lived AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6.2.3
+        with:
+          role-to-assume: arn:aws:iam::877653168003:role/FirearmTestGitHubDeployRole
+          aws-region: ${{ env.AWS_REGION }}
+          allowed-account-ids: ${{ env.AWS_ACCOUNT_ID }}
+          role-session-name: firearm-test-${{ github.run_id }}
+
+      - name: Ensure Lightsail container service exists
+        shell: bash
+        run: |
+          if [[ "$(aws lightsail get-container-services \
+            --service-name "$LIGHTSAIL_SERVICE" \
+            --region "$AWS_REGION" \
+            --query 'containerServices[0].containerServiceName' \
+            --output text)" == "None" ]]; then
+            aws lightsail create-container-service \
+              --service-name "$LIGHTSAIL_SERVICE" \
+              --power micro \
+              --scale 1 \
+              --tags key=Project,value=firearm-test \
+              --region "$AWS_REGION"
+          fi
+
+          for attempt in {1..60}; do
+            state="$(aws lightsail get-container-services \
+              --service-name "$LIGHTSAIL_SERVICE" \
+              --region "$AWS_REGION" \
+              --query 'containerServices[0].state' \
+              --output text)"
+            if [[ "$state" == "READY" || "$state" == "RUNNING" ]]; then
+              exit 0
+            fi
+            sleep 10
+          done
+
+          echo "Lightsail service did not become ready in time." >&2
+          exit 1
+
+      - name: Build and push container image
+        id: image
+        shell: bash
+        run: |
+          docker build \
+            --tag "firearm-test:${GITHUB_SHA}" \
+            .
+
+          image_name="$(aws lightsail push-container-image \
+            --service-name "$LIGHTSAIL_SERVICE" \
+            --label app \
+            --image "firearm-test:${GITHUB_SHA}" \
+            --region "$AWS_REGION" \
+            --query 'image.name' \
+            --output text)"
+
+          echo "name=$image_name" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy image
+        shell: bash
+        env:
+          IMAGE_NAME: ${{ steps.image.outputs.name }}
+        run: |
+          jq -n \
+            --arg service "$LIGHTSAIL_SERVICE" \
+            --arg container "$CONTAINER_NAME" \
+            --arg image "$IMAGE_NAME" \
+            '{
+              serviceName: $service,
+              containers: {
+                ($container): {
+                  image: $image,
+                  ports: {"8080": "HTTP"},
+                  environment: {
+                    SERVER_SERVLET_SESSION_TIMEOUT: "30m"
+                  }
+                }
+              },
+              publicEndpoint: {
+                containerName: $container,
+                containerPort: 8080,
+                healthCheck: {
+                  path: "/",
+                  successCodes: "200-399",
+                  intervalSeconds: 10,
+                  timeoutSeconds: 5,
+                  healthyThreshold: 2,
+                  unhealthyThreshold: 2
+                }
+              }
+            }' > deployment.json
+
+          aws lightsail create-container-service-deployment \
+            --cli-input-json file://deployment.json \
+            --region "$AWS_REGION"
+
+      - name: Wait for deployment
+        shell: bash
+        run: |
+          for attempt in {1..60}; do
+            state="$(aws lightsail get-container-services \
+              --service-name "$LIGHTSAIL_SERVICE" \
+              --region "$AWS_REGION" \
+              --query 'containerServices[0].state' \
+              --output text)"
+            if [[ "$state" == "RUNNING" ]]; then
+              url="$(aws lightsail get-container-services \
+                --service-name "$LIGHTSAIL_SERVICE" \
+                --region "$AWS_REGION" \
+                --query 'containerServices[0].url' \
+                --output text)"
+              echo "Application URL: $url"
+              echo "### Deployment complete" >> "$GITHUB_STEP_SUMMARY"
+              echo "$url" >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            sleep 10
+          done
+
+          echo "Deployment did not become healthy in time." >&2
+          exit 1

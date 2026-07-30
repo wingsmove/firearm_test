@@ -1,0 +1,9 @@
+.git
+.gitignore
+.idea
+.vscode
+AGENTS.md
+frontend/dist
+frontend/node_modules
+target
+*.log

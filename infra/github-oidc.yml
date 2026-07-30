@@ -1,0 +1,73 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: GitHub OIDC role for deploying Firearm Test to Amazon Lightsail.
+
+Parameters:
+  GitHubOwner:
+    Type: String
+    Default: wingsmove
+  GitHubRepository:
+    Type: String
+    Default: firearm_test
+  GitHubBranch:
+    Type: String
+    Default: main
+
+Resources:
+  GitHubOidcProvider:
+    Type: AWS::IAM::OIDCProvider
+    Properties:
+      Url: https://token.actions.githubusercontent.com
+      ClientIdList:
+        - sts.amazonaws.com
+      Tags:
+        - Key: Project
+          Value: firearm-test
+
+  GitHubDeployRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: FirearmTestGitHubDeployRole
+      Description: Short-lived GitHub Actions role for the Firearm Test Lightsail deployment.
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !Ref GitHubOidcProvider
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+                token.actions.githubusercontent.com:sub: !Sub repo:${GitHubOwner}/${GitHubRepository}:ref:refs/heads/${GitHubBranch}
+      Tags:
+        - Key: Project
+          Value: firearm-test
+
+  GitHubDeployPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      Description: Minimum Lightsail permissions required by the Firearm Test deployment workflow.
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: DeployFirearmTestContainer
+            Effect: Allow
+            Action:
+              - lightsail:CreateContainerService
+              - lightsail:TagResource
+              - lightsail:GetContainerServices
+              - lightsail:GetContainerServicePowers
+              - lightsail:CreateContainerServiceRegistryLogin
+              - lightsail:RegisterContainerImage
+              - lightsail:GetContainerImages
+              - lightsail:CreateContainerServiceDeployment
+              - lightsail:GetContainerServiceDeployments
+            Resource: "*"
+      Roles:
+        - !Ref GitHubDeployRole
+
+Outputs:
+  GitHubDeployRoleArn:
+    Description: Role assumed by the main-branch GitHub Actions workflow.
+    Value: !GetAtt GitHubDeployRole.Arn
