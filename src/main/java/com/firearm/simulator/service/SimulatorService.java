@@ -8,6 +8,7 @@ import java.util.Deque;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
+import org.springframework.web.context.annotation.SessionScope;
 
 import FunctionClass.Ammunition;
 import FunctionClass.AutoLoadClosedBoltFirearms;
@@ -31,6 +32,7 @@ import com.firearm.simulator.model.FiringSystem;
 import com.firearm.simulator.model.SimulatorAction;
 
 @Service
+@SessionScope
 public class SimulatorService {
 
     private static final int MAX_EVENTS = 50;
